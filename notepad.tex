@@ -1,0 +1,207 @@
+\documentclass[12pt]{article}
+
+\usepackage{mathptmx}
+\usepackage{bbm}
+\usepackage{tikz-cd,mathtools}
+\usepackage{tikz}
+\usepackage{mathtools}
+\usepackage{array}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage[mathscr]{euscript}
+\usepackage{subcaption}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\graphicspath{ {~/Maths/3rd_sem1/} }
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\usepackage{hyperref}
+\hypersetup{
+colorlinks=true,
+        linkcolor=blue,
+        filecolor=magenta,
+        urlcolor=cyan,
+}
+\urlstyle{same}
+
+\newcommand{\A}{\mathbb{A}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\f}{\mathfrak{f}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\g}{\mathfrak{g}}
+\newcommand{\K}{\mathbb{K}}
+\renewcommand{\l}{\mathfrak{l}}
+\newcommand{\p}{\mathfrak{p}}
+\renewcommand{\P}{\mathfrak{P}}
+\newcommand{\PP}{\mathbb{P}}
+\newcommand{\E}{\mathbb{E}}
+
+
+\newenvironment{proof}[1][Proof]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{definition}[1][Definition]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{example}[1][Example]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+\newenvironment{remark}[1][Remark]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}]}{\end{trivlist}}
+
+\newcommand{\qed}{\nobreak \ifvmode \relax \else
+      \ifdim\lastskip<1.5em \hskip-\lastskip
+      \hskip1.5em plus0em minus0.5em \fi \nobreak
+      \vrule height0.75em width0.5em depth0.25em\fi}
+
+% figure support
+\usepackage{import}
+\usepackage{xifthen}
+\pdfminorversion=7
+\usepackage{pdfpages}
+\usepackage{transparent}
+\newcommand{\incfig}[1]{%
+\def\svgwidth{\columnwidth}
+\import{./figures/}{#1.pdf_tex}
+}
+
+
+\pdfsuppresswarningpagegroup=1
+
+\begin{document}
+\begin{center}
+\Huge{\boldmath{Thesis notepad of ideas and weekly log of papers read etc etc}}
+\end{center}
+\section{Adam Ideas}
+The Adam algorithm is applied in the following way. \\
+For each iteration $t\in\N$, let $g^{t} := \nabla_{w}L(w)$. The update step is given by 
+
+\begin{align*}
+	m^{t+1} &= \beta_1 m^{t} + (1-\beta_1)g^{t} \\
+	v^{t+1} &= \beta_2 v^{t} + (1-\beta_2) g^{t} \odot g^{t}\\
+	\hat{m}^{t+1} &= \frac{1}{1-\beta_1^{t+1}} m^{t+1} \quad , \quad \hat{v}^{t+1} = \frac{1}{1-\beta_2^{t+1}} v^{t+1}\\
+	w^{t+1} &= w^{t} - \eta \frac{\hat{m}^{t+1}}{\sqrt{\hat{v}^{t+1}} +\varepsilon }
+\end{align*}
+
+\subsection*{LR scheduler ideas}
+It is sometimes the case that a learning rate scheduler $(\eta_{j})_{j\in\N} $ is used in conjunction with Adam. One could also encode a decreasing (resp. increasing) step size by changing the $\varepsilon $ parameter with time. 
+\\
+Namely, one has update steps of the form 
+\[
+w^{t+1} = w^{t} - \eta \frac{\hat{m}^{t+1}}{\sqrt{\hat{v}^{t+1}} + \varepsilon_t} \quad \text{instead of} \quad w^{t+1} = w^{t} - \eta_t \frac{\hat{m}^{t+1}}{\sqrt{\hat{v}^{t+1}} +\varepsilon }
+\] 
+\subsubsection*{probably stupid}
+Easiest way to alter the existing adam method in torch is just to find the equivalent learning rate schedule which corresponds to a given  $\varepsilon $ schedule. \\ 	
+More explicitely, given some sequence $(\varepsilon _{t})_{t\ge_0} $ and $\eta >0$, what sequence $(\eta_{t})_{t\ge_0 } $ is such that 
+\[
+w^{t+1} = w^{t} - \eta \frac{\hat{m}^{t+1}}{\sqrt{\hat{v}^{t+1}} + \varepsilon_t} \quad \text{is equialent to} \quad w^{t+1} = w^{t} - \eta_t \frac{\hat{m}^{t+1}}{\sqrt{\hat{v}^{t+1}} +\varepsilon_0 }
+\] 
+Solving would give:
+\[
+\eta_t = \frac{(\eta - \eta_t)\sqrt{\text{EMA}_{\beta_2}(g_t^2)} + \eta \varepsilon_0   }{\varepsilon _t}
+\]
+Ok definitely stupid: can't know lr ahead of time. 
+Will just implement directly in torch.
+\subsection*{Coupling of momentum and RMS}
+The momentum and RMS boil down to keeping track of a moving average ($\text{EMT}_{\beta}$) parametrized by $\beta\in \R_{\ge 0}$. 
+\\
+While regular adam is given by:
+\[
+w^{t+1} = w^{t} - \eta \frac{\text{EMA}_{\beta_1}(g_t)}{\sqrt{\text{EMA}_{\beta_2}(g_t ^2) } + \varepsilon  }
+\] 
+one could also consider the double nesting formula
+\[
+w^{t+1} = w^{t} - \eta \text{EMA}_{\beta_1} \left( \frac{g_t}{\sqrt{EMA_{\beta_2}(g_t^2)} + \varepsilon  } \right) 
+\] 
+
+or in two steps 
+\begin{align*}
+	v^{t} &= \text{bias correct}(\beta_2v^{t-1} + (1-\beta_2)g^{t}\odot g^{t})\\
+	K^{t} &= \text{bias correct}(\beta_1K^{t-1} + (1-\beta_1) \frac{g_{t}}{\sqrt{v^{t}} + \varepsilon  })
+\end{align*}
+When doing this, the bias correction term becomes less clear cut. Of course the second moment estimate $v^{t}$ is the same ($1-\beta_1^{t} $ if you believe $E[g_t]$ is similar on initialization) . But after the nested average we have a sum of the form 
+
+\[
+	K^{t} = (1-\beta_1)\sum_{j=0}^{t-1} {\beta_1^{t-i-1} \frac{g_j}{\sqrt{v_j} + \varepsilon }}
+\]
+
+Can we make the same kind of assumption for initial values of $t$? Namely that $E[\frac{g_j}{\sqrt{v_j} + \varepsilon }]$ is "close enough" for all small $j$ so that we can reduce the ugly expression above to a geometric sum. If so, great the term is the same. If not, any other clever tricks? 
+
+
+\section*{to also consider}
+\begin{itemize}
+\item The Frederic Kunstner paper discusses Zipf's law and looking at loss of less common tokens. Shows adam learns the less frequent tokens better than SGD even with no batches
+\item the Bernstein paper shows how (without first moment ema) most optimizers (e.g Adam, SGD, Prodigy ) are simply steepest descent wrt to some norm and how different parameters should have different operator norms applied depending on shape and action. Adam chooses infinity norm and kind of so does SignSGD
+\item the paper from 2020 "geometry of sign GD" shows that maybe sign methods can sometimes be better. In particular when Hessian is centred near diagonal and when the max eigenvalues are much bigger than average eigenvalues. Also SGD and Adam have some similaraties and are equivalent as params in adam $\to 0$.  Also $\ell_{\infty}$ smoothness is weaker than seperable smoothness and is a  sufficient assumption. 
+\item Maybe some discussion on Music Foundation models?  
+\item implementation pytorch-optimizer forked repo. Good idea? 
+\end{itemize}
+
+
+
+\section*{Week of 25th November}
+\begin{itemize}
+\item Read the Optimization for deep learning: Theory and algorithms document
+\item implemented the $\varepsilon $-scheduler to optimizer (\href{https://github.com/sam-laing/torch_optimizer_prototypes}{torch optimizer prototypes} forked from online repo)
+\item read the confidential paper sent via slack. 
+\item read Dynamics of SGD with Stochastic Polyak Stepsizes:
+Truly Adaptive Variants and Convergence
+to Exact Solution
+\item Began benchmarking Adam variants on some toy datasets in collab: the cluster contract still awaits!
+
+\item Looked at Nikkolo's \href{https://github.com/Niccolo-Ajroldi/plainLM/tree/main}{PlainLM repo} repo
+\item tried reading up a bit on best practices of hyperparameter sweeps etc. Some basic questions 
+\end{itemize}
+\section*{Week of 2 December}
+\begin{itemize}
+\item Read A Survey on Efficient Training of Transformers
+	\begin{itemize}
+	\item one proposition is SOAP without accumulation for efficiency
+	\item AdaDiag basically uses an SVD of the gradient to precondition the step size which still doing ADAM type things. Might be an interesting thing to try and nest with the NestedMA optimizer.
+	\end{itemize}
+\item IMPROVING ADAPTIVE MOMENT OPTIMIZATION
+VIA PRECONDITIONER DIAGONALIZATION
+\item investigating the modula package (\href{https://github.com/modula-systems/modula}{Scalable Optimization in the Modular Norm})
+\item Looked over the AdamMini paper
+\item looked over Why transformers need Adam: A Hessian Perspective
+\end{itemize}
+
+\subsection*{some thoughts}
+\begin{itemize}
+\item would be interesting to investigate bias correction vs taking some steps with SGD and then initializating adaptive optimizer from there
+\item would like to try the bernstein norm and explictely assign a different optimizer paradigm depending on the type of layer as discussed in the paper "Scalable Optimization in the Modular Norm". 
+\item What are some reasonable ways for the epsilon scheduler to update. Intuitively a milestones $=$ [] seems useful but maybe a functional relationship could be better? 
+generally $\varepsilon $ should increase to have something of a similar affect to the learning rate shrinking but to which extent? is there some theory to be built? 
+\item evalute on vision transformers and small language models, RNNs, GNNs etc. to start to see if adaptive optimizers are more a data or model choice or both...
+\item Adam usually updates the moving averages per batch but it might be interesting to update more strongly for recent batches since if we use mini batching very quickly we lose info within a single epoch even though it might be nice to retain it
+\end{itemize}
+\section*{Week of 9 December}
+\begin{itemize}
+\item The Impact of the Mini-batch Size on the
+Variance of Gradients in Stochastic Gradient Descent
+
+\end{itemize}
+
+
+
+\subsection*{ideas}
+\begin{itemize}
+\item Work with some adaptive batch size; in the paper AdaBatch: Adaptive Batch Sizes for Training Deep Neural Networks, they implement for vision models. They also call it "adaptive" but really just make a batch size schedule and then make sure the ratio of the learning rate to the batch size remains constant. Also not clear whether they look at the adaptive adam step size or just the fixed learning rate (get the impression it's the latter). Don't see many other papers on this topic and the takeaway of the paper was that performace is similar but since the batch size increases, the later epochs are quicker and therefore training time is reduced.
+\item This backPACK package let's us compute the variance of batches (or could just do as in The Impact of the Mini-batch Size on the
+Variance of Gradients in Stochastic Gradient Descent). Idea to monitor variance as proxy for batch update size
+\item Which Algorithmic Choices Matter at Which Batch
+Sizes? Insights From a Noisy Quadratic Model
+\item in optimizer class, detect layer type and find better optimization mechanism for transformer architecture and conv layer. Use shampoo for linear layers. 
+\item get partial hessian of some of the diagonal blocks  (the hessian perspective on adam paper shows the structure is basically block diagonal in later epochs). Block diagonal hessian free method kind of ignores the curvature entirely 
+\end{itemize}
+
+\end{document}
